@@ -1,12 +1,12 @@
 # 🛡️ WANNACRY? - Red Team, Blue Team, and SOC Toolkit
 
-> **DISCLAIMER**: This tool is for educational and ethical testing purposes only. The author does not condone illegal use.
+> **DISCLAIMER**: This tool is for educational and ethical testing purposes only. The authoring team does not condone illegal use.
 
 ---
 
 ## 📦 Overview
 
-**WANNACRY?** is a beginner-friendly open-sourced Bash-based toolkit combining basic offensive (Red Team), defensive (Blue Team), and monitoring (SOC) functionalities into a single, easy-to-use interface. The goal is to help users learn fundamental security operations, from port scanning to brute-force simulations and basic defense scans.
+**WANNACRY?** is a beginner-friendly open-sourced Bash-based (Linux) toolkit combining basic offensive (Red Team), defensive (Blue Team), and monitoring (SOC) functionalities into a single, easy-to-use interface. The goal is to help users learn fundamental security operations, from port scanning to brute-force simulations and basic defense scans.
 
 ---
 
