@@ -6,7 +6,7 @@
 
 ## 📦 Overview
 
-**WANNACRY?** is a beginner-friendly Bash-based toolkit combining basic offensive (Red Team), defensive (Blue Team), and monitoring (SOC) functionalities into a single, easy-to-use interface. The goal is to help users learn fundamental security operations, from port scanning to brute-force simulations and basic defense scans.
+**WANNACRY?** is a beginner-friendly open-sourced Bash-based toolkit combining basic offensive (Red Team), defensive (Blue Team), and monitoring (SOC) functionalities into a single, easy-to-use interface. The goal is to help users learn fundamental security operations, from port scanning to brute-force simulations and basic defense scans.
 
 ---
 
