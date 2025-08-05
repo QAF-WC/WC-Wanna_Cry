@@ -6,7 +6,7 @@ from flask import Flask, render_template, request, redirect, url_for, session
 import re
 import threading
 import time
-import inspect
+import shutil
 from werkzeug.security import generate_password_hash, check_password_hash
 
 # Create required directories
@@ -173,7 +173,7 @@ def create_templates():
                                 <select name="service" class="form-select">
                                     <option value="ssh">SSH</option>
                                     <option value="ftp">FTP</option>
-                                    <option value="http">HTTP Login</option>
+                                    <option value="http-get">HTTP Login</option>
                                 </select>
                             </div>
                             <div class="mb-3">
@@ -186,7 +186,7 @@ def create_templates():
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Password Wordlist</label>
-                                <input type="text" name="wordlist" class="form-control" required>
+                                <input type="text" name="wordlist" class="form-control" value="/usr/share/wordlists/rockyou.txt" required>
                             </div>
                             <button type="submit" class="btn btn-tool w-100">Start Attack</button>
                         </form>
@@ -665,7 +665,8 @@ app.config['LOG_FOLDER'] = 'logs'
 # Required tools list
 REQUIRED_TOOLS = [
     'nmap', 'netstat', 'tcpdump', 'ps', 'top', 'ss', 'lsof',
-    'hping3', 'gobuster', 'hydra', 'journalctl', 'df'
+    'hping3', 'gobuster', 'hydra', 'journalctl', 'df', 'ip',
+    'linpeas', 'airodump-ng', 'autopsy', 'radare2', 'dradis'
 ]
 
 # Tool status tracking
@@ -677,11 +678,11 @@ ADMIN_PASSWORD = generate_password_hash('supersecret')
 # Advanced mode tools (without Metasploit)
 ADVANCED_TOOLS = {
     'privilege_escalation': {
-        'command': 'sudo linpeas.sh',
+        'command': 'sudo linpeas -a',
         'description': 'Privilege Escalation Check'
     },
     'wireless_tools': {
-        'command': 'sudo airodump-ng wlan0',
+        'command': 'sudo airodump-ng wlan0 --write /tmp/wifi_scan',
         'description': 'Wireless Network Scanner'
     },
     'forensics': {
@@ -689,7 +690,7 @@ ADVANCED_TOOLS = {
         'description': 'Forensics Toolkit'
     },
     'malware_analysis': {
-        'command': 'sudo r2 -AAA',
+        'command': 'sudo r2 -AAA -i /usr/share/radare2',
         'description': 'Malware Analysis'
     },
     'reporting': {
@@ -701,7 +702,7 @@ ADVANCED_TOOLS = {
 def check_tools():
     missing = []
     for tool in REQUIRED_TOOLS:
-        if not subprocess.run(['which', tool], capture_output=True).stdout:
+        if not shutil.which(tool):
             missing.append(tool)
     return missing
 
@@ -760,9 +761,12 @@ def run_tool(command, logfile, tool_name):
             
             while process.poll() is None:
                 time.sleep(3)
-                with open(logfile, 'r') as log:
-                    lines = len(log.readlines())
-                    tool_status[tool_name]['progress'] = f"Processed {lines} lines"
+                try:
+                    with open(logfile, 'r') as log:
+                        lines = len(log.readlines())
+                        tool_status[tool_name]['progress'] = f"Processed {lines} lines"
+                except:
+                    pass
                     
         tool_status[tool_name] = {'running': False, 'progress': 'Completed'}
     except Exception as e:
@@ -832,7 +836,7 @@ def run_tcpdump():
     interface = request.form.get('interface', 'eth0')
     count = request.form.get('count', '100')
     logfile = os.path.join(app.config['LOG_FOLDER'], f'tcpdump_{int(time.time())}.log')
-    command = f"tcpdump -i {interface} -c {count} -w {logfile}"
+    command = f"sudo tcpdump -i {interface} -c {count} -w {logfile}"
     
     threading.Thread(target=run_tool, args=(command, logfile, 'tcpdump')).start()
     
@@ -845,7 +849,7 @@ def run_tcpdump():
 def monitor_logs():
     logfile = request.form.get('logfile', '/var/log/syslog')
     logfile_out = os.path.join(app.config['LOG_FOLDER'], f'logmonitor_{int(time.time())}.log')
-    command = f"tail -f {logfile} > {logfile_out}"
+    command = f"sudo tail -f {logfile} > {logfile_out}"
     
     threading.Thread(target=run_tool, args=(command, logfile_out, 'logmonitor')).start()
     
@@ -904,7 +908,7 @@ def run_advanced_tool(tool_name):
 def run_scan():
     target = request.form.get('target')
     logfile = os.path.join(app.config['LOG_FOLDER'], f'nmap_scan_{int(time.time())}.log')
-    command = f"nmap -sC -sV -p- {target} -T4"
+    command = f"sudo nmap -sC -sV -p- {target} -T4"
     
     threading.Thread(target=run_tool, args=(command, logfile, 'nmap')).start()
     
@@ -920,7 +924,7 @@ def run_ddos():
     target = request.form.get('target')
     count = request.form.get('count', '1000')
     logfile = os.path.join(app.config['LOG_FOLDER'], f'ddos_{int(time.time())}.log')
-    command = f"hping3 -S --flood -c {count} {target}"
+    command = f"sudo hping3 -S --flood -c {count} {target}"
     
     threading.Thread(target=run_tool, args=(command, logfile, 'hping3')).start()
     
@@ -940,7 +944,7 @@ def run_gobuster():
         website = f"http://{website}"
     
     logfile = os.path.join(app.config['LOG_FOLDER'], f'gobuster_{int(time.time())}.log')
-    command = f"gobuster dir -u {website} -w {wordlist} -q"
+    command = f"sudo gobuster dir -u {website} -w {wordlist} -q"
     
     threading.Thread(target=run_tool, args=(command, logfile, 'gobuster')).start()
     
@@ -959,7 +963,7 @@ def run_hydra():
     wordlist = request.form.get('wordlist')
     
     logfile = os.path.join(app.config['LOG_FOLDER'], f'hydra_{int(time.time())}.log')
-    command = f"hydra -l {user} -P {wordlist} {target} {service}"
+    command = f"sudo hydra -l {user} -P {wordlist} {target} {service}"
     
     threading.Thread(target=run_tool, args=(command, logfile, 'hydra')).start()
     
@@ -973,7 +977,7 @@ def run_hydra():
 @app.route('/run-local-scan', methods=['POST'])
 def run_local_scan():
     logfile = os.path.join(app.config['LOG_FOLDER'], f'local_scan_{int(time.time())}.log')
-    command = "nmap -sS -T4 localhost"
+    command = "sudo nmap -sS -T4 localhost"
     
     threading.Thread(target=run_tool, args=(command, logfile, 'local_scan')).start()
     
@@ -988,7 +992,7 @@ def run_local_scan():
 def run_network_scan():
     subnet = get_local_subnet()
     logfile = os.path.join(app.config['LOG_FOLDER'], f'network_scan_{int(time.time())}.log')
-    command = f"nmap -sn {subnet}"
+    command = f"sudo nmap -sn {subnet}"
     
     threading.Thread(target=run_tool, args=(command, logfile, 'network_scan')).start()
     
