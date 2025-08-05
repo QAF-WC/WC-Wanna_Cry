@@ -9,6 +9,48 @@ import time
 import inspect
 from werkzeug.security import generate_password_hash, check_password_hash
 
+# ==================== UTILITY FUNCTIONS ====================
+
+def check_tools():
+    """Check if required tools are installed"""
+    missing = []
+    for tool in REQUIRED_TOOLS:
+        if not subprocess.run(['which', tool], capture_output=True).stdout:
+            missing.append(tool)
+    return missing
+
+def get_local_subnet():
+    """Get the local subnet address"""
+    try:
+        result = subprocess.run(['ip', '-4', 'addr', 'show', 'scope', 'global'], 
+                              capture_output=True, text=True)
+        ip_line = result.stdout.split('\n')[2].strip()
+        return ip_line.split()[1]
+    except:
+        return ""
+
+def run_tool(command, logfile, tool_name):
+    """Run a system tool and monitor its progress"""
+    tool_status[tool_name] = {'running': True, 'progress': 'Starting...'}
+    try:
+        with open(logfile, 'w') as f:
+            process = subprocess.Popen(command, shell=True, stdout=f, stderr=subprocess.STDOUT)
+            
+            while process.poll() is None:
+                time.sleep(5)
+                try:
+                    with open(logfile, 'r') as log:
+                        lines = len(log.readlines())
+                        tool_status[tool_name]['progress'] = f"Processed {lines} lines"
+                except:
+                    pass
+                    
+        tool_status[tool_name] = {'running': False, 'progress': 'Completed'}
+    except Exception as e:
+        tool_status[tool_name] = {'running': False, 'progress': f'Error: {str(e)}'}
+
+# ==================== SYSTEM INITIALIZATION ====================
+
 # Define all required directories and their structures
 REQUIRED_DIRS = {
     'templates': [],
@@ -17,15 +59,52 @@ REQUIRED_DIRS = {
     'static': ['css', 'js', 'images']
 }
 
-# Create all required directories and subdirectories
+# Required tools list
+REQUIRED_TOOLS = [
+    'figlet', 'lolcat', 'nmap', 'hping3', 'gobuster', 
+    'hydra', 'ss', 'journalctl', 'tail', 'find', 'ip',
+    'tcpdump', 'netstat'
+]
+
+# Tool status tracking
+tool_status = {}
+
+# Admin password (hashed)
+ADMIN_PASSWORD = generate_password_hash('supersecret')
+
+# Advanced mode tools
+ADVANCED_TOOLS = {
+    'privilege_escalation': {
+        'command': 'sudo linpeas.sh',
+        'description': 'Privilege Escalation Check'
+    },
+    'wireless_tools': {
+        'command': 'sudo airodump-ng wlan0',
+        'description': 'Wireless Network Scanner'
+    },
+    'forensics': {
+        'command': 'sudo autopsy',
+        'description': 'Forensics Toolkit'
+    },
+    'malware_analysis': {
+        'command': 'sudo r2 -AAA',
+        'description': 'Malware Analysis'
+    },
+    'reporting': {
+        'command': 'sudo dradis',
+        'description': 'Reporting Suite'
+    }
+}
+
 def create_directories():
+    """Create all required directories and subdirectories"""
     for directory, subdirs in REQUIRED_DIRS.items():
         os.makedirs(directory, exist_ok=True)
         for subdir in subdirs:
             os.makedirs(os.path.join(directory, subdir), exist_ok=True)
 
-# Create all HTML template files with thorough checks
 def create_templates():
+    """Create all template files if they don't exist"""
     templates = {
         'home.html': '''<!DOCTYPE html>
 <html>
@@ -44,120 +123,41 @@ def create_templates():
     </style>
 </head>
 <body>
-    <div class="container py-5">
-        <div class="text-center mb-5">
-            <h1 class="display-4" style="font-family: 'Courier New', monospace; color: #cc0000;">
-                WANNACRY Toolkit
-            </h1>
-            <p class="lead">Choose Your Side</p>
-            <a href="#" class="admin-link" onclick="showAdminPrompt()">Admin Access</a>
-        </div>
-        {% if missing_tools %}
-        <div class="alert alert-danger">
-            <h4>Missing Tools:</h4>
-            <ul>
-                {% for tool in missing_tools %}
-                <li>{{ tool }}</li>
-                {% endfor %}
-            </ul>
-        </div>
-        {% endif %}
-        <div class="row">
-            <div class="col-md-3 mb-4">
-                <div class="card h-100">
-                    <div class="card-body text-center">
-                        <h3 class="card-title">Red Team</h3>
-                        <p class="card-text">Offensive Security Tools</p>
-                        <a href="/red-team" class="btn btn-red w-100">Enter</a>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3 mb-4">
-                <div class="card h-100">
-                    <div class="card-body text-center">
-                        <h3 class="card-title">Blue Team</h3>
-                        <p class="card-text">Defensive Security Tools</p>
-                        <a href="/blue-team" class="btn btn-blue w-100">Enter</a>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3 mb-4">
-                <div class="card h-100">
-                    <div class="card-body text-center">
-                        <h3 class="card-title">SOC Mode</h3>
-                        <p class="card-text">Monitoring & Response</p>
-                        <a href="/soc-mode" class="btn btn-soc w-100">Enter</a>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3 mb-4">
-                <div class="card h-100">
-                    <div class="card-body text-center">
-                        <h3 class="card-title">Source Help</h3>
-                        <p class="card-text">Function Documentation</p>
-                        <a href="/source-help" class="btn btn-help w-100">View</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <script>
-        function showAdminPrompt() {
-            const password = prompt("Enter Admin Password:");
-            if (password) {
-                window.location.href = `/admin-login?password=${encodeURIComponent(password)}`;
-            }
-        }
-    </script>
+    <!-- [Rest of home.html content] -->
 </body>
 </html>''',
-        # [Rest of your template content remains the same...]
-        # Include all other templates from your original code here
+        'soc_mode.html': '''<!DOCTYPE html>
+<html>
+<head>
+    <title>SOC Mode</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #001a00; color: #ccffcc; }
+        .card { background-color: #003300; border: 1px solid #006600; }
+        .card-title { color: #00ff00; }
+        .btn-tool { background-color: #00cc99; border-color: #33ffcc; }
+        .back-link { color: #99ff99; }
+    </style>
+</head>
+<body>
+    <!-- [Rest of soc_mode.html content] -->
+</body>
+</html>''',
+        # [Include all other templates here]
     }
 
-    # Ensure templates directory exists
     os.makedirs('templates', exist_ok=True)
-
-    # Create each template file if it doesn't exist or is empty
     for filename, content in templates.items():
         filepath = os.path.join('templates', filename)
         if not os.path.exists(filepath) or os.path.getsize(filepath) == 0:
             with open(filepath, 'w') as f:
                 f.write(content)
-            print(f"Created template: {filepath}")
-        else:
-            print(f"Template exists: {filepath}")
 
 def verify_system_requirements():
     """Verify all system requirements are met"""
-    # Check directories
-    for directory, subdirs in REQUIRED_DIRS.items():
-        if not os.path.exists(directory):
-            print(f"Creating missing directory: {directory}")
-            os.makedirs(directory, exist_ok=True)
-        
-        for subdir in subdirs:
-            subdir_path = os.path.join(directory, subdir)
-            if not os.path.exists(subdir_path):
-                print(f"Creating missing subdirectory: {subdir_path}")
-                os.makedirs(subdir_path, exist_ok=True)
+    create_directories()
+    create_templates()
     
-    # Check templates
-    required_templates = [
-        'home.html', 'red_team.html', 'blue_team.html',
-        'soc_mode.html', 'source_help.html', 'running.html',
-        'view_logs.html', 'view_log.html', 'admin_login.html',
-        'advanced_mode.html'
-    ]
-    
-    for template in required_templates:
-        template_path = os.path.join('templates', template)
-        if not os.path.exists(template_path):
-            print(f"Missing template detected: {template_path}")
-            create_templates()  # Regenerate all templates if any are missing
-            break
-    
-    # Check for required tools
     missing_tools = check_tools()
     if missing_tools:
         print("WARNING: Missing required tools:")
@@ -165,39 +165,36 @@ def verify_system_requirements():
             print(f" - {tool}")
         print("Some features may not work properly without these tools.")
 
-# Initialize the system
-verify_system_requirements()
-create_directories()
+# ==================== FLASK APPLICATION ====================
 
-# [Rest of your Flask application code remains the same...]
-# Initialize Flask app
 app = Flask(__name__)
 app.secret_key = 'supersecretkey'
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['LOG_FOLDER'] = 'logs'
 
-# Required tools list
-REQUIRED_TOOLS = [
-    'figlet', 'lolcat', 'nmap', 'hping3', 'gobuster', 
-    'hydra', 'ss', 'journalctl', 'tail', 'find', 'ip',
-    'tcpdump', 'netstat'
-]
+@app.route('/')
+def home():
+    missing_tools = check_tools()
+    return render_template('home.html', missing_tools=missing_tools)
 
-# [Continue with the rest of your original code...]
+@app.route('/soc-mode')
+def soc_mode():
+    active_connections = subprocess.run(['netstat', '-tuln'], capture_output=True, text=True).stdout
+    system_status = subprocess.run(['top', '-b', '-n', '1'], capture_output=True, text=True).stdout
+    return render_template('soc_mode.html',
+                         active_connections=active_connections,
+                         system_status=system_status)
+
+# [Add all other route handlers here]
+
+# ==================== MAIN EXECUTION ====================
 
 if __name__ == '__main__':
     # Verify everything is in place before starting
     verify_system_requirements()
     
-    # Check if running as root
     if os.geteuid() != 0:
         print("Warning: Some tools require root privileges. Consider running with sudo.")
-    
-    # Check for required tools
-    missing = check_tools()
-    if missing:
-        print(f"Missing tools: {', '.join(missing)}")
-        print("Install them before using all features")
     
     print("Starting WANNACRY Toolkit...")
     print("Access the GUI at: http://localhost:5000")
