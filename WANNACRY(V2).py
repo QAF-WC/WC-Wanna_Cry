@@ -315,7 +315,7 @@ def create_templates():
                         <form action="/run-tcpdump" method="post">
                             <div class="mb-3">
                                 <label class="form-label">Interface</label>
-                                <input type="text" name="interface" class="form-control" placeholder="eth0" required>
+                                <input type="text" name="interface" class="form-control" placeholder="eth0" value="eth0" required>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Packet Count</label>
@@ -352,10 +352,10 @@ def create_templates():
                 <div class="card h-100">
                     <div class="card-body">
                         <h3 class="card-title">System Status</h3>
-                        <form action="/refresh-system-status" method="post">
-                            <button type="submit" class="btn btn-tool mb-3 w-100">Refresh Status</button>
-                        </form>
                         <pre>{{ system_status }}</pre>
+                        <form action="/refresh-system-status" method="post">
+                            <button type="submit" class="btn btn-tool mt-3 w-100">Refresh Status</button>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -365,10 +365,10 @@ def create_templates():
                 <div class="card h-100">
                     <div class="card-body">
                         <h3 class="card-title">Active Connections</h3>
-                        <form action="/refresh-connections" method="post">
-                            <button type="submit" class="btn btn-tool mb-3 w-100">Refresh Connections</button>
-                        </form>
                         <pre>{{ active_connections }}</pre>
+                        <form action="/refresh-connections" method="post">
+                            <button type="submit" class="btn btn-tool mt-3 w-100">Refresh Connections</button>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -378,12 +378,13 @@ def create_templates():
                 <div class="card h-100">
                     <div class="card-body">
                         <h3 class="card-title">Process Monitoring</h3>
+                        <pre>{{ process_list }}</pre>
                         <form action="/monitor-processes" method="post">
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="mb-3">
                                         <label class="form-label">Process Filter</label>
-                                        <input type="text" name="filter" class="form-control" placeholder="e.g., sshd">
+                                        <input type="text" name="filter" class="form-control" placeholder="e.g., sshd" value="sshd">
                                     </div>
                                 </div>
                                 <div class="col-md-6">
@@ -395,7 +396,6 @@ def create_templates():
                             </div>
                             <button type="submit" class="btn btn-tool w-100">Monitor Processes</button>
                         </form>
-                        <pre class="mt-3">{{ process_list }}</pre>
                     </div>
                 </div>
             </div>
@@ -464,48 +464,37 @@ def create_templates():
             <strong>Warning:</strong> This mode contains advanced penetration testing tools. Use responsibly.
         </div>
         <div class="row">
-            <div class="col-md-4 mb-4">
-                <div class="card h-100">
-                    <div class="card-body text-center">
-                        <h3 class="card-title">Privilege Escalation</h3>
-                        <p class="card-text">Check for system vulnerabilities</p>
-                        <a href="/run-advanced-tool/privilege_escalation" class="btn btn-admin w-100">Run Checks</a>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4 mb-4">
+            <div class="col-md-6 mb-4">
                 <div class="card h-100">
                     <div class="card-body text-center">
                         <h3 class="card-title">Wireless Tools</h3>
                         <p class="card-text">WiFi scanning and attacks</p>
-                        <a href="/run-advanced-tool/wireless_tools" class="btn btn-admin w-100">Access</a>
+                        <form action="/run-wireless-scan" method="post">
+                            <div class="mb-3">
+                                <label class="form-label">Interface</label>
+                                <input type="text" name="interface" class="form-control" placeholder="wlan0" value="wlan0" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Scan Duration (sec)</label>
+                                <input type="number" name="duration" class="form-control" value="10">
+                            </div>
+                            <button type="submit" class="btn btn-admin w-100">Start Scan</button>
+                        </form>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4 mb-4">
+            <div class="col-md-6 mb-4">
                 <div class="card h-100">
                     <div class="card-body text-center">
                         <h3 class="card-title">Forensics Toolkit</h3>
                         <p class="card-text">Memory and disk analysis</p>
-                        <a href="/run-advanced-tool/forensics" class="btn btn-admin w-100">Analyze</a>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4 mb-4">
-                <div class="card h-100">
-                    <div class="card-body text-center">
-                        <h3 class="card-title">Malware Analysis</h3>
-                        <p class="card-text">Sandbox and reverse engineering</p>
-                        <a href="/run-advanced-tool/malware_analysis" class="btn btn-admin w-100">Examine</a>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4 mb-4">
-                <div class="card h-100">
-                    <div class="card-body text-center">
-                        <h3 class="card-title">Reporting Suite</h3>
-                        <p class="card-text">Generate comprehensive reports</p>
-                        <a href="/run-advanced-tool/reporting" class="btn btn-admin w-100">Create Report</a>
+                        <form action="/run-forensics" method="post" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label class="form-label">File to Analyze</label>
+                                <input type="file" name="file" class="form-control" required>
+                            </div>
+                            <button type="submit" class="btn btn-admin w-100">Analyze File</button>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -652,21 +641,21 @@ def create_templates():
         with open(f'templates/{filename}', 'w') as f:
             f.write(content)
 
-# Create template files if they don't exist
-if not os.path.exists('templates/home.html'):
-    create_templates()
+# Create template files
+create_templates()
 
 # Initialize Flask app
 app = Flask(__name__)
 app.secret_key = 'supersecretkey'
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['LOG_FOLDER'] = 'logs'
+app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB max upload size
 
 # Required tools list
 REQUIRED_TOOLS = [
     'nmap', 'netstat', 'tcpdump', 'ps', 'top', 'ss', 'lsof',
     'hping3', 'gobuster', 'hydra', 'journalctl', 'df', 'ip',
-    'linpeas', 'airodump-ng', 'autopsy', 'radare2', 'dradis'
+    'airodump-ng', 'strings'
 ]
 
 # Tool status tracking
@@ -674,30 +663,6 @@ tool_status = {}
 
 # Admin password (hashed)
 ADMIN_PASSWORD = generate_password_hash('supersecret')
-
-# Advanced mode tools (without Metasploit)
-ADVANCED_TOOLS = {
-    'privilege_escalation': {
-        'command': 'sudo linpeas -a',
-        'description': 'Privilege Escalation Check'
-    },
-    'wireless_tools': {
-        'command': 'sudo airodump-ng wlan0 --write /tmp/wifi_scan',
-        'description': 'Wireless Network Scanner'
-    },
-    'forensics': {
-        'command': 'sudo autopsy',
-        'description': 'Forensics Toolkit'
-    },
-    'malware_analysis': {
-        'command': 'sudo r2 -AAA -i /usr/share/radare2',
-        'description': 'Malware Analysis'
-    },
-    'reporting': {
-        'command': 'sudo dradis',
-        'description': 'Reporting Suite'
-    }
-}
 
 def check_tools():
     missing = []
@@ -796,28 +761,31 @@ def blue_team():
 def soc_mode():
     system_status = get_system_status()
     active_connections = get_active_connections()
+    process_list = get_process_list("", 20)
     return render_template('soc_mode.html',
                          system_status=system_status,
                          active_connections=active_connections,
-                         process_list="Run process monitoring to see results")
+                         process_list=process_list)
 
 @app.route('/refresh-system-status', methods=['POST'])
 def refresh_system_status():
     system_status = get_system_status()
     active_connections = get_active_connections()
+    process_list = get_process_list("", 20)
     return render_template('soc_mode.html',
                          system_status=system_status,
                          active_connections=active_connections,
-                         process_list="Run process monitoring to see results")
+                         process_list=process_list)
 
 @app.route('/refresh-connections', methods=['POST'])
 def refresh_connections():
     active_connections = get_active_connections()
     system_status = get_system_status()
+    process_list = get_process_list("", 20)
     return render_template('soc_mode.html',
                          system_status=system_status,
                          active_connections=active_connections,
-                         process_list="Run process monitoring to see results")
+                         process_list=process_list)
 
 @app.route('/monitor-processes', methods=['POST'])
 def monitor_processes():
@@ -836,14 +804,16 @@ def run_tcpdump():
     interface = request.form.get('interface', 'eth0')
     count = request.form.get('count', '100')
     logfile = os.path.join(app.config['LOG_FOLDER'], f'tcpdump_{int(time.time())}.log')
-    command = f"sudo tcpdump -i {interface} -c {count} -w {logfile}"
+    command = f"sudo tcpdump -i {interface} -c {count}"
     
     threading.Thread(target=run_tool, args=(command, logfile, 'tcpdump')).start()
     
-    return render_template('soc_mode.html',
-                         system_status=get_system_status(),
-                         active_connections=get_active_connections(),
-                         process_list=f"TCPDump started on {interface}, saving to {logfile}")
+    return render_template('running.html', 
+                         tool_name="Packet Capture", 
+                         logfile=logfile,
+                         target=interface,
+                         command=command,
+                         return_url="/soc-mode")
 
 @app.route('/monitor-logs', methods=['POST'])
 def monitor_logs():
@@ -853,10 +823,12 @@ def monitor_logs():
     
     threading.Thread(target=run_tool, args=(command, logfile_out, 'logmonitor')).start()
     
-    return render_template('soc_mode.html',
-                         system_status=get_system_status(),
-                         active_connections=get_active_connections(),
-                         process_list=f"Monitoring {logfile}, output to {logfile_out}")
+    return render_template('running.html', 
+                         tool_name="Log Monitor", 
+                         logfile=logfile_out,
+                         target=logfile,
+                         command=command,
+                         return_url="/soc-mode")
 
 @app.route('/admin-login', methods=['GET', 'POST'])
 def admin_login():
@@ -883,24 +855,50 @@ def advanced_mode():
         return redirect(url_for('admin_login'))
     return render_template('advanced_mode.html')
 
-@app.route('/run-advanced-tool/<tool_name>')
-def run_advanced_tool(tool_name):
+@app.route('/run-wireless-scan', methods=['POST'])
+def run_wireless_scan():
     if not session.get('admin'):
         return redirect(url_for('admin_login'))
     
-    if tool_name not in ADVANCED_TOOLS:
-        return "Tool not found", 404
+    interface = request.form.get('interface', 'wlan0')
+    duration = request.form.get('duration', '10')
+    logfile = os.path.join(app.config['LOG_FOLDER'], f'wireless_scan_{int(time.time())}.log')
+    command = f"sudo timeout {duration} airodump-ng {interface}"
     
-    tool = ADVANCED_TOOLS[tool_name]
-    logfile = os.path.join(app.config['LOG_FOLDER'], f'{tool_name}_{int(time.time())}.log')
-    command = tool['command']
-    
-    threading.Thread(target=run_tool, args=(command, logfile, tool_name)).start()
+    threading.Thread(target=run_tool, args=(command, logfile, 'airodump')).start()
     
     return render_template('running.html', 
-                         tool_name=tool['description'], 
+                         tool_name="Wireless Scan", 
                          logfile=logfile,
-                         target="Advanced Tool",
+                         target=interface,
+                         command=command,
+                         return_url="/advanced-mode")
+
+@app.route('/run-forensics', methods=['POST'])
+def run_forensics():
+    if not session.get('admin'):
+        return redirect(url_for('admin_login'))
+    
+    if 'file' not in request.files:
+        return "No file uploaded", 400
+        
+    file = request.files['file']
+    if file.filename == '':
+        return "No selected file", 400
+        
+    # Save the uploaded file
+    filename = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+    file.save(filename)
+    
+    logfile = os.path.join(app.config['LOG_FOLDER'], f'forensics_{int(time.time())}.log')
+    command = f"strings {filename} | head -n 1000"
+    
+    threading.Thread(target=run_tool, args=(command, logfile, 'forensics')).start()
+    
+    return render_template('running.html', 
+                         tool_name="Forensics Analysis", 
+                         logfile=logfile,
+                         target=file.filename,
                          command=command,
                          return_url="/advanced-mode")
 
