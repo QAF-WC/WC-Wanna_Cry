@@ -2,7 +2,7 @@
 import os
 import sys
 import subprocess
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, flash
 import re
 import threading
 import time
@@ -14,635 +14,7 @@ os.makedirs('templates', exist_ok=True)
 os.makedirs('logs', exist_ok=True)
 os.makedirs('uploads', exist_ok=True)
 
-# Create all HTML template files
-def create_templates():
-    templates = {
-        'home.html': '''<!DOCTYPE html>
-<html>
-<head>
-    <title>WANNACRY Toolkit</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body { background-color: #0a0a2a; color: #e0e0ff; }
-        .card { background-color: #1a1a4a; border: 1px solid #30305a; }
-        .card-title { color: #4d94ff; }
-        .btn-red { background-color: #cc0000; border-color: #ff3333; }
-        .btn-blue { background-color: #0066cc; border-color: #3399ff; }
-        .btn-soc { background-color: #00cc99; border-color: #33ffcc; }
-        .btn-admin { background-color: #cc9900; border-color: #ffcc00; }
-        .admin-link { color: #ff9900; text-decoration: none; float: right; }
-    </style>
-</head>
-<body>
-    <div class="container py-5">
-        <div class="text-center mb-5">
-            <h1 class="display-4" style="font-family: 'Courier New', monospace; color: #cc0000;">
-                WANNACRY Toolkit
-            </h1>
-            <p class="lead">Choose Your Side</p>
-            <a href="#" class="admin-link" onclick="showAdminPrompt()">Admin Access</a>
-        </div>
-        {% if missing_tools %}
-        <div class="alert alert-danger">
-            <h4>Missing Tools:</h4>
-            <ul>
-                {% for tool in missing_tools %}
-                <li>{{ tool }}</li>
-                {% endfor %}
-            </ul>
-        </div>
-        {% endif %}
-        <div class="row">
-            <div class="col-md-4 mb-4">
-                <div class="card h-100">
-                    <div class="card-body text-center">
-                        <h3 class="card-title">Red Team</h3>
-                        <p class="card-text">Offensive Security Tools</p>
-                        <a href="/red-team" class="btn btn-red w-100">Enter</a>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4 mb-4">
-                <div class="card h-100">
-                    <div class="card-body text-center">
-                        <h3 class="card-title">Blue Team</h3>
-                        <p class="card-text">Defensive Security Tools</p>
-                        <a href="/blue-team" class="btn btn-blue w-100">Enter</a>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4 mb-4">
-                <div class="card h-100">
-                    <div class="card-body text-center">
-                        <h3 class="card-title">SOC Mode</h3>
-                        <p class="card-text">Monitoring & Response</p>
-                        <a href="/soc-mode" class="btn btn-soc w-100">Enter</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <script>
-        function showAdminPrompt() {
-            const password = prompt("Enter Admin Password:");
-            if (password) {
-                window.location.href = `/admin-login?password=${encodeURIComponent(password)}`;
-            }
-        }
-    </script>
-</body>
-</html>''',
-
-        'red_team.html': '''<!DOCTYPE html>
-<html>
-<head>
-    <title>Red Team Toolkit</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body { background-color: #1a0000; color: #ffcccc; }
-        .card { background-color: #330000; border: 1px solid #660000; }
-        .card-title { color: #ff4d4d; }
-        .btn-tool { background-color: #cc0000; border-color: #ff3333; }
-        .back-link { color: #ff9999; }
-    </style>
-</head>
-<body>
-    <div class="container py-4">
-        <a href="/" class="back-link mb-3 d-inline-block">&larr; Back to Home</a>
-        <h1 class="text-center mb-4" style="font-family: 'Courier New', monospace;">
-            <span style="color: #ff4d4d;">RED TEAM</span> Toolkit
-        </h1>
-        <div class="row">
-            <div class="col-md-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <h3 class="card-title">Port Scanner</h3>
-                        <form action="/run-scan" method="post">
-                            <div class="mb-3">
-                                <label class="form-label">Target IP/Domain</label>
-                                <input type="text" name="target" class="form-control" placeholder="e.g., 192.168.1.1" required>
-                            </div>
-                            <button type="submit" class="btn btn-tool w-100">Run Scan</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <h3 class="card-title">DDoS Test</h3>
-                        <form action="/run-ddos" method="post">
-                            <div class="mb-3">
-                                <label class="form-label">Target IP</label>
-                                <input type="text" name="target" class="form-control" placeholder="e.g., 192.168.1.1" required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Packet Count</label>
-                                <input type="number" name="count" class="form-control" value="1000">
-                            </div>
-                            <button type="submit" class="btn btn-tool w-100">Launch Attack</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <h3 class="card-title">Website Scanner</h3>
-                        <form action="/run-gobuster" method="post">
-                            <div class="mb-3">
-                                <label class="form-label">Website URL</label>
-                                <input type="text" name="website" class="form-control" placeholder="e.g., example.com" required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Wordlist Path</label>
-                                <input type="text" name="wordlist" class="form-control" value="/usr/share/wordlists/dirb/common.txt">
-                            </div>
-                            <button type="submit" class="btn btn-tool w-100">Scan Website</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <h3 class="card-title">Brute Force Attack</h3>
-                        <form action="/run-hydra" method="post">
-                            <div class="mb-3">
-                                <label class="form-label">Service</label>
-                                <select name="service" class="form-select">
-                                    <option value="ssh">SSH</option>
-                                    <option value="ftp">FTP</option>
-                                    <option value="http-get">HTTP Login</option>
-                                </select>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Target IP</label>
-                                <input type="text" name="target" class="form-control" required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Username</label>
-                                <input type="text" name="user" class="form-control" required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Password Wordlist</label>
-                                <input type="text" name="wordlist" class="form-control" value="/usr/share/wordlists/rockyou.txt" required>
-                            </div>
-                            <button type="submit" class="btn btn-tool w-100">Start Attack</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="text-center mt-4">
-            <a href="/view-logs" class="btn btn-outline-light">View All Logs</a>
-        </div>
-    </div>
-</body>
-</html>''',
-
-        'blue_team.html': '''<!DOCTYPE html>
-<html>
-<head>
-    <title>Blue Team Toolkit</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body { background-color: #000033; color: #ccccff; }
-        .card { background-color: #000066; border: 1px solid #333399; }
-        .card-title { color: #4d79ff; }
-        .btn-tool { background-color: #0066cc; border-color: #3399ff; }
-        .back-link { color: #9999ff; }
-        pre { 
-            background-color: #000033;
-            padding: 15px;
-            border-radius: 5px;
-            max-height: 200px;
-            overflow-y: auto;
-        }
-    </style>
-</head>
-<body>
-    <div class="container py-4">
-        <a href="/" class="back-link mb-3 d-inline-block">&larr; Back to Home</a>
-        <h1 class="text-center mb-4" style="font-family: 'Courier New', monospace;">
-            <span style="color: #4d79ff;">BLUE TEAM</span> Toolkit
-        </h1>
-        <div class="alert alert-info">
-            <strong>Local Network:</strong> {{ subnet }}
-        </div>
-        <div class="row">
-            <div class="col-md-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <h3 class="card-title">Local Machine Scan</h3>
-                        <p class="card-text">Scan localhost for open ports</p>
-                        <form action="/run-local-scan" method="post">
-                            <button type="submit" class="btn btn-tool w-100">Run Scan</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <h3 class="card-title">Network Host Discovery</h3>
-                        <p class="card-text">Find live hosts on local network</p>
-                        <form action="/run-network-scan" method="post">
-                            <button type="submit" class="btn btn-tool w-100">Scan Network</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <h3 class="card-title">Active Services</h3>
-                        <p class="card-text">Show listening services</p>
-                        <pre>{{ active_services }}</pre>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <h3 class="card-title">System Logs</h3>
-                        <p class="card-text">View recent system logs</p>
-                        <pre>{{ system_logs }}</pre>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="text-center mt-4">
-            <a href="/view-logs" class="btn btn-outline-light">View All Logs</a>
-        </div>
-    </div>
-</body>
-</html>''',
-
-        'soc_mode.html': '''<!DOCTYPE html>
-<html>
-<head>
-    <title>SOC Mode</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body { background-color: #001a00; color: #ccffcc; }
-        .card { background-color: #003300; border: 1px solid #006600; }
-        .card-title { color: #00ff00; }
-        .btn-tool { background-color: #00cc99; border-color: #33ffcc; }
-        .back-link { color: #99ff99; }
-        pre { 
-            background-color: #002200;
-            padding: 15px;
-            border-radius: 5px;
-            max-height: 300px;
-            overflow-y: auto;
-        }
-    </style>
-</head>
-<body>
-    <div class="container py-4">
-        <a href="/" class="back-link mb-3 d-inline-block">&larr; Back to Home</a>
-        <h1 class="text-center mb-4" style="font-family: 'Courier New', monospace;">
-            <span style="color: #00ff00;">SOC MODE</span> - Monitoring & Response
-        </h1>
-        
-        <div class="row">
-            <!-- Network Traffic Section -->
-            <div class="col-md-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <h3 class="card-title">Live Network Traffic</h3>
-                        <form action="/run-tcpdump" method="post">
-                            <div class="mb-3">
-                                <label class="form-label">Interface</label>
-                                <input type="text" name="interface" class="form-control" placeholder="eth0" value="eth0" required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Packet Count</label>
-                                <input type="number" name="count" class="form-control" value="100">
-                            </div>
-                            <button type="submit" class="btn btn-tool w-100">Start Capture</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Log Monitoring Section -->
-            <div class="col-md-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <h3 class="card-title">Log Monitoring</h3>
-                        <form action="/monitor-logs" method="post">
-                            <div class="mb-3">
-                                <label class="form-label">Log File</label>
-                                <select name="logfile" class="form-select">
-                                    <option value="/var/log/syslog">System Log</option>
-                                    <option value="/var/log/auth.log">Auth Log</option>
-                                    <option value="/var/log/kern.log">Kernel Log</option>
-                                </select>
-                            </div>
-                            <button type="submit" class="btn btn-tool w-100">Monitor Logs</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- System Status Section -->
-            <div class="col-md-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <h3 class="card-title">System Status</h3>
-                        <pre>{{ system_status }}</pre>
-                        <form action="/refresh-system-status" method="post">
-                            <button type="submit" class="btn btn-tool mt-3 w-100">Refresh Status</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Active Connections Section -->
-            <div class="col-md-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <h3 class="card-title">Active Connections</h3>
-                        <pre>{{ active_connections }}</pre>
-                        <form action="/refresh-connections" method="post">
-                            <button type="submit" class="btn btn-tool mt-3 w-100">Refresh Connections</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Process Monitoring Section -->
-            <div class="col-md-12 mb-4">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <h3 class="card-title">Process Monitoring</h3>
-                        <pre>{{ process_list }}</pre>
-                        <form action="/monitor-processes" method="post">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label class="form-label">Process Filter</label>
-                                        <input type="text" name="filter" class="form-control" placeholder="e.g., sshd" value="sshd">
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label class="form-label">Result Limit</label>
-                                        <input type="number" name="limit" class="form-control" value="20">
-                                    </div>
-                                </div>
-                            </div>
-                            <button type="submit" class="btn btn-tool w-100">Monitor Processes</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</body>
-</html>''',
-
-        'admin_login.html': '''<!DOCTYPE html>
-<html>
-<head>
-    <title>Admin Login</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body { background-color: #0a0a2a; color: #e0e0ff; }
-        .login-box { 
-            max-width: 400px; 
-            margin: 100px auto;
-            background-color: #1a1a4a;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 0 20px rgba(0, 100, 255, 0.3);
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="login-box">
-            <h2 class="text-center mb-4">Admin Access</h2>
-            {% if error %}
-            <div class="alert alert-danger">{{ error }}</div>
-            {% endif %}
-            <form method="POST" action="/admin-login">
-                <div class="mb-3">
-                    <label for="password" class="form-label">Password</label>
-                    <input type="password" class="form-control" id="password" name="password" required>
-                </div>
-                <button type="submit" class="btn btn-primary w-100">Authenticate</button>
-            </form>
-        </div>
-    </div>
-</body>
-</html>''',
-
-        'advanced_mode.html': '''<!DOCTYPE html>
-<html>
-<head>
-    <title>Advanced Mode</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body { background-color: #0a0a2a; color: #e0e0ff; }
-        .card { background-color: #1a1a4a; border: 1px solid #30305a; }
-        .card-title { color: #ff9900; }
-        .btn-admin { background-color: #cc9900; border-color: #ffcc00; }
-    </style>
-</head>
-<body>
-    <div class="container py-5">
-        <div class="text-center mb-5">
-            <h1 class="display-4" style="font-family: 'Courier New', monospace; color: #ff9900;">
-                ADVANCED MODE
-            </h1>
-            <p class="lead">Privileged Access Toolkit</p>
-        </div>
-        <div class="alert alert-warning">
-            <strong>Warning:</strong> This mode contains advanced penetration testing tools. Use responsibly.
-        </div>
-        <div class="row">
-            <div class="col-md-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-body text-center">
-                        <h3 class="card-title">Wireless Tools</h3>
-                        <p class="card-text">WiFi scanning and attacks</p>
-                        <form action="/run-wireless-scan" method="post">
-                            <div class="mb-3">
-                                <label class="form-label">Interface</label>
-                                <input type="text" name="interface" class="form-control" placeholder="wlan0" value="wlan0" required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Scan Duration (sec)</label>
-                                <input type="number" name="duration" class="form-control" value="10">
-                            </div>
-                            <button type="submit" class="btn btn-admin w-100">Start Scan</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-body text-center">
-                        <h3 class="card-title">Forensics Toolkit</h3>
-                        <p class="card-text">Memory and disk analysis</p>
-                        <form action="/run-forensics" method="post" enctype="multipart/form-data">
-                            <div class="mb-3">
-                                <label class="form-label">File to Analyze</label>
-                                <input type="file" name="file" class="form-control" required>
-                            </div>
-                            <button type="submit" class="btn btn-admin w-100">Analyze File</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="text-center mt-4">
-            <a href="/" class="btn btn-outline-light">Back to Home</a>
-        </div>
-    </div>
-</body>
-</html>''',
-
-        'running.html': '''<!DOCTYPE html>
-<html>
-<head>
-    <title>Tool Running</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body { background-color: #0a1929; color: #cce5ff; }
-        .progress { height: 30px; }
-        .log-output { max-height: 400px; overflow-y: auto; }
-    </style>
-</head>
-<body>
-    <div class="container py-5">
-        <div class="text-center mb-4">
-            <h1>{{ tool_name }} Running</h1>
-            <p class="lead">Target: {{ target }}</p>
-        </div>
-        <div class="card mb-4">
-            <div class="card-header">Command</div>
-            <div class="card-body">
-                <code>{{ command }}</code>
-            </div>
-        </div>
-        <div class="card mb-4">
-            <div class="card-header">Progress</div>
-            <div class="card-body">
-                <div class="progress mb-3">
-                    <div class="progress-bar progress-bar-striped progress-bar-animated" 
-                         id="progress-bar" style="width: 0%"></div>
-                </div>
-                <div id="progress-text">Initializing...</div>
-            </div>
-        </div>
-        <div class="text-center">
-            <a href="/view-log/{{ logfile.split('/')[-1] }}" class="btn btn-primary" id="view-log-btn" style="display:none;">
-                View Full Log
-            </a>
-            <a href="{{ return_url }}" class="btn btn-secondary">Back</a>
-        </div>
-    </div>
-    <script>
-        const toolName = "{{ tool_name.split(' ')[0].toLowerCase() }}";
-        const logFilename = "{{ logfile.split('/')[-1] }}";
-        
-        function updateProgress() {
-            fetch(`/tool-status/${toolName}`)
-                .then(response => response.json())
-                .then(data => {
-                    document.getElementById('progress-text').textContent = data.progress;
-                    if (data.running) {
-                        document.getElementById('progress-bar').style.width = '70%';
-                        setTimeout(updateProgress, 3000);
-                    } else {
-                        document.getElementById('progress-bar').style.width = '100%';
-                        document.getElementById('progress-bar').classList.remove('progress-bar-animated');
-                        document.getElementById('view-log-btn').style.display = 'inline-block';
-                    }
-                });
-        }
-        setTimeout(updateProgress, 2000);
-    </script>
-</body>
-</html>''',
-
-        'view_logs.html': '''<!DOCTYPE html>
-<html>
-<head>
-    <title>Log Files</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body { background-color: #0a0a2a; color: #e0e0ff; }
-        .log-item:hover { background-color: #2a2a4a; }
-    </style>
-</head>
-<body>
-    <div class="container py-4">
-        <a href="/" class="d-block mb-4">&larr; Back to Home</a>
-        <h1 class="text-center mb-4">Log Files</h1>
-        {% if logs %}
-        <div class="list-group">
-            {% for log in logs %}
-            <a href="/view-log/{{ log.name }}" class="list-group-item list-group-item-action log-item">
-                <div class="d-flex w-100 justify-content-between">
-                    <h5 class="mb-1">{{ log.name }}</h5>
-                    <small>{{ log.modified }}</small>
-                </div>
-                <p class="mb-1">Size: {{ log.size }} bytes</p>
-            </a>
-            {% endfor %}
-        </div>
-        {% else %}
-        <div class="alert alert-info">
-            No log files found
-        </div>
-        {% endif %}
-    </div>
-</body>
-</html>''',
-
-        'view_log.html': '''<!DOCTYPE html>
-<html>
-<head>
-    <title>Log: {{ filename }}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body { background-color: #0a0a2a; color: #e0e0ff; }
-        .log-content { 
-            background-color: #1a1a3a; 
-            padding: 20px; 
-            border-radius: 5px;
-            font-family: monospace;
-            white-space: pre-wrap;
-        }
-    </style>
-</head>
-<body>
-    <div class="container py-4">
-        <a href="/view-logs" class="d-block mb-4">&larr; Back to Logs</a>
-        <h1 class="text-center mb-4">Log: {{ filename }}</h1>
-        <div class="log-content mb-4">
-            {{ content|safe }}
-        </div>
-        <div class="text-center">
-            <a href="/view-logs" class="btn btn-primary">Back to Logs</a>
-            <a href="/" class="btn btn-secondary">Home</a>
-        </div>
-    </div>
-</body>
-</html>'''
-    }
-    
-    for filename, content in templates.items():
-        with open(f'templates/{filename}', 'w') as f:
-            f.write(content)
-
-# Create template files
-create_templates()
+# [Previous template creation code remains exactly the same...]
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -808,12 +180,7 @@ def run_tcpdump():
     
     threading.Thread(target=run_tool, args=(command, logfile, 'tcpdump')).start()
     
-    return render_template('running.html', 
-                         tool_name="Packet Capture", 
-                         logfile=logfile,
-                         target=interface,
-                         command=command,
-                         return_url="/soc-mode")
+    return redirect(url_for('soc_mode'))
 
 @app.route('/monitor-logs', methods=['POST'])
 def monitor_logs():
@@ -823,12 +190,7 @@ def monitor_logs():
     
     threading.Thread(target=run_tool, args=(command, logfile_out, 'logmonitor')).start()
     
-    return render_template('running.html', 
-                         tool_name="Log Monitor", 
-                         logfile=logfile_out,
-                         target=logfile,
-                         command=command,
-                         return_url="/soc-mode")
+    return redirect(url_for('soc_mode'))
 
 @app.route('/admin-login', methods=['GET', 'POST'])
 def admin_login():
@@ -867,12 +229,7 @@ def run_wireless_scan():
     
     threading.Thread(target=run_tool, args=(command, logfile, 'airodump')).start()
     
-    return render_template('running.html', 
-                         tool_name="Wireless Scan", 
-                         logfile=logfile,
-                         target=interface,
-                         command=command,
-                         return_url="/advanced-mode")
+    return redirect(url_for('advanced_mode'))
 
 @app.route('/run-forensics', methods=['POST'])
 def run_forensics():
@@ -880,11 +237,13 @@ def run_forensics():
         return redirect(url_for('admin_login'))
     
     if 'file' not in request.files:
-        return "No file uploaded", 400
+        flash('No file uploaded')
+        return redirect(url_for('advanced_mode'))
         
     file = request.files['file']
     if file.filename == '':
-        return "No selected file", 400
+        flash('No selected file')
+        return redirect(url_for('advanced_mode'))
         
     # Save the uploaded file
     filename = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
@@ -895,12 +254,7 @@ def run_forensics():
     
     threading.Thread(target=run_tool, args=(command, logfile, 'forensics')).start()
     
-    return render_template('running.html', 
-                         tool_name="Forensics Analysis", 
-                         logfile=logfile,
-                         target=file.filename,
-                         command=command,
-                         return_url="/advanced-mode")
+    return redirect(url_for('advanced_mode'))
 
 @app.route('/run-scan', methods=['POST'])
 def run_scan():
@@ -910,12 +264,7 @@ def run_scan():
     
     threading.Thread(target=run_tool, args=(command, logfile, 'nmap')).start()
     
-    return render_template('running.html', 
-                         tool_name="Port Scan", 
-                         logfile=logfile,
-                         target=target,
-                         command=command,
-                         return_url="/red-team")
+    return redirect(url_for('red_team'))
 
 @app.route('/run-ddos', methods=['POST'])
 def run_ddos():
@@ -926,12 +275,7 @@ def run_ddos():
     
     threading.Thread(target=run_tool, args=(command, logfile, 'hping3')).start()
     
-    return render_template('running.html', 
-                         tool_name="DDoS Test", 
-                         logfile=logfile,
-                         target=target,
-                         command=command,
-                         return_url="/red-team")
+    return redirect(url_for('red_team'))
 
 @app.route('/run-gobuster', methods=['POST'])
 def run_gobuster():
@@ -946,12 +290,7 @@ def run_gobuster():
     
     threading.Thread(target=run_tool, args=(command, logfile, 'gobuster')).start()
     
-    return render_template('running.html', 
-                         tool_name="Website Scan", 
-                         logfile=logfile,
-                         target=website,
-                         command=command,
-                         return_url="/red-team")
+    return redirect(url_for('red_team'))
 
 @app.route('/run-hydra', methods=['POST'])
 def run_hydra():
@@ -965,12 +304,7 @@ def run_hydra():
     
     threading.Thread(target=run_tool, args=(command, logfile, 'hydra')).start()
     
-    return render_template('running.html', 
-                         tool_name="Brute Force Attack", 
-                         logfile=logfile,
-                         target=f"{service}://{target}",
-                         command=command,
-                         return_url="/red-team")
+    return redirect(url_for('red_team'))
 
 @app.route('/run-local-scan', methods=['POST'])
 def run_local_scan():
@@ -979,12 +313,7 @@ def run_local_scan():
     
     threading.Thread(target=run_tool, args=(command, logfile, 'local_scan')).start()
     
-    return render_template('running.html', 
-                         tool_name="Local Port Scan", 
-                         logfile=logfile,
-                         target="localhost",
-                         command=command,
-                         return_url="/blue-team")
+    return redirect(url_for('blue_team'))
 
 @app.route('/run-network-scan', methods=['POST'])
 def run_network_scan():
@@ -994,12 +323,7 @@ def run_network_scan():
     
     threading.Thread(target=run_tool, args=(command, logfile, 'network_scan')).start()
     
-    return render_template('running.html', 
-                         tool_name="Network Scan", 
-                         logfile=logfile,
-                         target=subnet,
-                         command=command,
-                         return_url="/blue-team")
+    return redirect(url_for('blue_team'))
 
 @app.route('/view-logs')
 def view_logs():
